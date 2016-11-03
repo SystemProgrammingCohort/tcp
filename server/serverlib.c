@@ -8,7 +8,6 @@
 #include "serverlib.h"
 
 
-
 int serverInit(struct addrinfo **serveraddr, int * sockfd)
 {
   struct addrinfo hints;
@@ -41,6 +40,18 @@ int serverInit(struct addrinfo **serveraddr, int * sockfd)
   }
 }
 
+void init_groups(void)
+{
+  int i;
+  for(i=0;i<MAX_MULTICAST_GROUPS;++i)
+  {
+    _global_groups_[i].number_of_clients = 0;
+    _global_groups_[i].clients_list.last = NULL;
+    _global_groups_[i].clients_list.first = NULL;
+  }
+  printf("\n server loading done\n");
+}
+
 epoll_event_handler * create_server_socket_handler(int efd, int sockfd)                                                                                                                                     
 { 
   epoll_event_handler *handle=NULL;                                                                                                                                                                         
@@ -51,6 +62,7 @@ epoll_event_handler * create_server_socket_handler(int efd, int sockfd)
   handle->fd = sockfd;
   handle->handle = handle_server_socket_event;;                                                                                                                                                             
   handle->closure = closure;
+  printf("\n created server handle");
   return handle;                                                                                                                                                                                            
 }
 
@@ -71,6 +83,7 @@ void handle_server_socket_event(struct epoll_event_handler* self, uint32_t event
     }                                                                                                                                                                                                       
     handle_client_connection(closure->epoll_fd,
         client_socket_fd);                                                                                                                                                                                  
+    printf("\n accepted client");
   }
 }
 

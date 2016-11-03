@@ -16,7 +16,6 @@
 
 #define MAX_CON 1200
 
-Groupinfo Groups[MAX_MULTICAST_GROUPS];
 
 int main()
 {
@@ -37,7 +36,8 @@ int main()
     return -1;
   }
   server_sock_handle = create_server_socket_handler(efd, sockfd);
-  add_epoll_handler(efd, server_sock_handle, EPOLLIN);
+  add_epoll_handler(efd, server_sock_handle, EPOLLIN | EPOLLOUT);
+  init_groups();
   do_reactor_loop(efd);
 
   close(sockfd);

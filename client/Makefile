@@ -1,2 +1,2 @@
-clientmake: main_client.c clientlib.c socklib.c
-	gcc main_client.c clientlib.c socklib.c -o client -I.
+clientmake: main_client.c clientlib.c socklib.c tlv.c
+	gcc main_client.c clientlib.c socklib.c tlv.c -o client -I.

@@ -7,6 +7,8 @@
 #include "serverclientlib.h"
 #include "double_list.h"
 #include "patricia.h"
+#include "signals.h"
+#include "tlv.h"
 
 void close_client_socket(struct epoll_event_handler* self)
 {
@@ -37,39 +39,24 @@ int read_from_socket(struct epoll_event_handler* self,char buffer[],int bytes_to
     }
     bytes_read+=read_this_time;
 //  }
-  buffer[bytes_read+1]='\0';
-  printf("mssg:%s",buffer);
-  return TRUE;
+    printf("bytes read: %d",bytes_read);
+  return bytes_read;
 }
 
-// below code is only for checkingi whether add to group is working or not... need to remove once the code for encoding/decoding client messages is written
-void decode_message_from_client(client_socket_event_data *client_data,char buffer[])
+void decode_message_from_client(client_socket_event_data *client_data,char buffer[],unsigned int buf_size)
 {
   printf("decode_message_from_client\n");
-  int group=0,i=0,j;
-  char char_group[10]={0};
-  while(buffer[i]!='\0')
-  {
-    while(buffer[i]==' ')
-      ++i;
-    j=0;
-    while(buffer[i]!=' ' && buffer[i]!='\0')
-    {
-      char_group[j]=buffer[i];
-      ++i;
-      ++j;
-    }
-    if(j > 4)
-      return;
-    char_group[j]='\0';
-    group = atoi(char_group);
-    printf("group:%d\n",group);
-    add_client_to_group(client_data,group);
-    printf("\n group list:");
-    display_list(&(_global_groups_[group-1].clients_list));
-    printf("\n ptree:");
-    display_clients_groups(client_data->clients_groups);
-  }
+  tlv_chain tc;
+  int num_groups,chain_size,i;
+  uint16_t *groups=NULL;
+  init_tlv_chain(&tc);
+
+  tlv_chain_deserialise(buffer,&tc,buf_size);
+  tlv_chain_print(&tc);
+  chain_size = tc.used;
+  for(i=0;i<chain_size;++i)
+    process_signal_type(&(tc.object[i]),client_data);
+  tlv_chain_free(&tc);
 }
 
 void handle_client_socket_event(struct epoll_event_handler* self, uint32_t events)
@@ -82,10 +69,10 @@ void handle_client_socket_event(struct epoll_event_handler* self, uint32_t event
 
   if(events & EPOLLIN)
   {
-    if(read_from_socket(self,buffer,bytes_to_read) == TRUE)
+    if((bytes_read = read_from_socket(self,buffer,bytes_to_read)) != FALSE)
     {
-//      printf("another:%s ",buffer);
-      decode_message_from_client(self->closure,buffer);
+      printf("byr rd: %d",bytes_read);
+      decode_message_from_client(self->closure,buffer,bytes_read);
     }
   }
   if ((events & EPOLLERR) | (events & EPOLLHUP) /*| (events & EPOLLRDHUP)*/) {
@@ -123,16 +110,22 @@ void handle_client_connection(int epoll_fd, int client_socket_fd)
   printf("\n added client to epoll");
 }
 
-void add_client_to_group(client_socket_event_data *client,int group)
+int  add_client_to_group(client_socket_event_data *client,int group)
 {
   struct dnode* group_node=NULL;
   if(group < 0 || group > MAX_MULTICAST_GROUPS)
-    return;
+    return 0;
   _global_groups_[group-1].number_of_clients += 1;
   group_node = add_dnode(&(_global_groups_[group-1].clients_list),group,client);
+  if(group_node == NULL)
+    return 0;
   if(!add_group_to_client(client->clients_groups,group,(void *)group_node))
+  {
     delete_dnode(&(_global_groups_[(group_node->group_number)-1].clients_list),&group_node);
+    return 0;
+  }
   printf("\n added client to group");
+  return 1;
 }
 
 int remove_all_groups_from_client(client_socket_event_data *client)
@@ -229,4 +222,61 @@ void display_clients_groups(struct client_group_ptree *p)
   }
   display_ptree_inorder(p->root->left,0);
   printf("done\n");
+}
+
+void process_signal_type(tlv *tlv,client_socket_event_data *client_data)
+{
+  int i;
+  uint16_t *groups=NULL,group,num_groups;
+  tlv_chain *tc=NULL;
+  uint16_t num_success_groups=0,*success_group_list=NULL;
+  char msg[MAX_MSG];
+  int num_bytes=0,bytes_sent;
+
+  switch(tlv->type)
+  {
+    case JOIN_REQUEST: decode_join_request(tlv,&num_groups,&groups);
+                       success_group_list = (uint16_t *)malloc(sizeof(uint16_t)*num_groups);
+                       printf("\n Number of groups:%d\n",num_groups);
+                       for(i=0;i<num_groups;++i)
+                       {
+                         group = *(groups+i);
+                         printf("\n Group: %d\n",group);
+                         if(add_client_to_group(client_data,group))
+                         {
+                         printf("\n group list:");
+                         *(success_group_list+num_success_groups) = group;
+                         ++num_success_groups;
+                         }
+                         display_list(&(_global_groups_[group-1].clients_list));
+                         printf("\n ptree:");
+                         display_clients_groups(client_data->clients_groups);
+                       }
+                       printf("\n Sending Accept");
+                       tc = encode_join(JOIN_ACCEPT,num_success_groups,success_group_list);
+                       tlv_chain_serialise(tc,msg,&num_bytes);
+                       bytes_sent = send(client_data->fd,msg,num_bytes,0);
+                       tlv_chain_free(tc);
+                       free(success_group_list);
+                       printf("\n bytes sent: %d",bytes_sent);
+                       break;
+    case JOIN_ACCEPT: break;
+    case QUES_SOLVE: printf("\n I need to solve this question");
+                     send(client_data->fd,"Solve it\0",8,0);
+                     break;
+    case QUES_ANSWER: printf("\n recieved answer from client");
+                      break;
+    case QUES_ERROR_INVALID: printf("\n recieved messge from client thet question is invalid");
+                             break;
+    case QUES_ERROR_LIMITED_RESOURCE: printf("\n client cannot solve it right now");
+                                      break;
+    case QUES_ERROR_ANSWER_INVALID: printf("\n the answer that I gave was invalid, will probably remove myself from that group");
+                                    break;
+    case QUES_ERROR_OTHER: printf("\n recieved this error from client");
+                           break;
+    case INVALID_CLIENT: printf("\n I sent some messge for a group I was not supposed to send");
+                         break;
+    default: printf("\n received invalid signal");
+             break;
+  }
 }

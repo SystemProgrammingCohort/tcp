@@ -19,7 +19,7 @@ extern void* cli_handler(void *arg );
 
 pthread_t cli_pid;
 
-int main()
+int main(int argc, char *argv[])
 {
   int sockfd,efd;
   struct epoll_event event;
@@ -44,6 +44,7 @@ int main()
     perror ("epoll_create");
     return -1;
   }
+
   server_sock_handle = create_server_socket_handler(efd, sockfd);
   add_epoll_handler(efd, server_sock_handle, EPOLLIN | EPOLLOUT);
   init_groups();

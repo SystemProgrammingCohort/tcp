@@ -15,13 +15,14 @@
 #include "tlv.h"
 #include <errno.h>
 
+extern int sockfd;
 
 int main(int argc, char *argv[])
 {
   // For socket
-  int sockfd;
   uint16_t *groups,num_groups,actual_num_groups=0;
   tlv_chain *tc;
+  tlv_result ret = TLV_SUCCESS;
 
   //message
   char msg[MAX_MSG];
@@ -87,6 +88,12 @@ int main(int argc, char *argv[])
        printf("\n recieved: %d",read_this_time);
        buffer[read_this_time]='\0';
        printf("message recieved:%s",buffer);
+ 
+       ret = decode_server_msg((tlv*)&buffer);
+       if(ret == TLV_SERVER_REJECT) {
+         printf("Server Rejected the Group request. Exiting....\n");
+         break;
+       }
      }
    }
     if(read_this_time == -1)

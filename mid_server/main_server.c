@@ -16,10 +16,11 @@
 
 #define MAX_CON 1200
 
+extern int tcpfd;
 
 int main(int argc, char *argv[])
 {
-  int sockfd,efd,tcpfd;
+  int sockfd,efd;
   struct epoll_event event;
   epoll_event_handler *midserver_sock_handle, *server_sock_handle;
   struct addrinfo *serveraddr=NULL;
@@ -28,29 +29,9 @@ int main(int argc, char *argv[])
 
   if(argc < 2)
   {
-    printf("usage: midserver mainserver-addr num_groups groups\n");
+    printf("usage: midserver mainserver-addr port\n");
     return 1;
   }
-
-  i=3;
-  num_groups = atoi(argv[3]);
-  ++i;
-
-  printf("\n number of groups: %d",num_groups);
-  groups = (uint16_t *)malloc(sizeof(uint16_t)*num_groups);
-  for(j=0;i<argc;++i,++j)
-  {
-    groups[j] = atoi(argv[i]);
-    ++actual_num_groups;
-    printf(" %d ",groups[j]);
-  }
-
-  if(actual_num_groups!=num_groups)
-    printf("\n number of groups entered mismatch than required");
-
-  if(actual_num_groups == 0)
-    return 1;
-
 
   if(serverInit(&serveraddr,&sockfd) == -1)
   {

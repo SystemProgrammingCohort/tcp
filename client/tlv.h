@@ -24,7 +24,8 @@ typedef enum tlv_result
 {
   TLV_SUCCESS,
   TLV_ERROR_UNINITIALISED,
-  TLV_ERROR_OUT_OF_MEMORY
+  TLV_ERROR_OUT_OF_MEMORY,
+  TLV_SERVER_REJECT
 }tlv_result;
 
 typedef enum signal
@@ -33,6 +34,7 @@ typedef enum signal
   JOIN_REQUEST,
   JOIN_ACCEPT,
   JOIN_REJECT,
+  DISJOIN,
   QUES_SOLVE,
   QUES_ANSWER,
   QUES_ERROR_INVALID,

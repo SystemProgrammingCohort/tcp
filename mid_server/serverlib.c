@@ -6,7 +6,13 @@
 #include <stdlib.h>
 #include "socklib.h"
 #include "serverlib.h"
+#include "tlv.h"
 
+void close_server_socket(struct epoll_event_handler* self)
+{
+  printf("close_server_socket");
+  return;
+}
 
 int serverInit(struct addrinfo **serveraddr, int * sockfd)
 {
@@ -129,6 +135,45 @@ void handle_midserver_socket_event(struct epoll_event_handler* self, uint32_t ev
   }
 }
 
+void decode_message_from_server(server_socket_event_data *server_data,char buffer[],unsigned int buf_size)
+{
+  printf("decode_message_from_server\n");
+  tlv_chain tc;
+  int num_groups,chain_size,i;
+  uint16_t *groups=NULL;
+  init_tlv_chain(&tc);
+
+  tlv_chain_deserialise(buffer,&tc,buf_size);
+  tlv_chain_print(&tc);
+  chain_size = tc.used;
+  for(i=0;i<chain_size;++i)
+    process_signal_type(&(tc.object[i]),server_data);
+  tlv_chain_free(&tc);
+}
+
+void handle_server_socket_event(struct epoll_event_handler* self, uint32_t events)
+{
+  printf("handle_server_socket_event");
+  struct server_socket_event_data* closure = (struct server_socket_event_data* ) self->closure;
+
+  char buffer[MAX_MSG];
+  int bytes_read=0, bytes_to_read=MAX_MSG-1, read_this_time=0;
+
+  if(events & EPOLLIN)
+  {
+    if((bytes_read = read_from_socket(self,buffer,bytes_to_read)) != FALSE)
+    {
+      printf("byr rd: %d",bytes_read);
+      decode_message_from_server(self->closure,buffer,bytes_read);
+   }
+  }
+  if ((events & EPOLLERR) | (events & EPOLLHUP) /*| (events & EPOLLRDHUP)*/) {
+    printf("\n error occured");
+    close_server_socket(self);
+    return;
+  }
+}
+
 epoll_event_handler * create_server_socket_handler(int efd, int sockfd)
 {
   epoll_event_handler *handle=NULL;                                                                                                                                                                         
@@ -137,7 +182,7 @@ epoll_event_handler * create_server_socket_handler(int efd, int sockfd)
   closure->epoll_fd = efd;
   handle = (epoll_event_handler *)malloc(sizeof(epoll_event_handler));                                                                                                                                      
   handle->fd = sockfd;
-  handle->handle = NULL;;                                                                                                                                                             
+  handle->handle = handle_server_socket_event;;                                                                                                                                                             
   handle->closure = closure;
   printf("\n created server handle");
   return handle;                                                                                                                                                                                            
@@ -153,6 +198,7 @@ void do_reactor_loop(int epoll_fd)
                                                                                                                                                                                                             
       epoll_wait(epoll_fd,&current_epoll_event, 1, -1);
       handler = (struct epoll_event_handler*) current_epoll_event.data.ptr;                                                                                                                                 
+      if(handler->handle)
       handler->handle(handler, current_epoll_event.events);
   }
 }

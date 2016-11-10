@@ -10,6 +10,7 @@
 #include "signals.h"
 #include "tlv.h"
 
+int tcpfd;
 void close_client_socket(struct epoll_event_handler* self)
 {
   printf("close_client_socket");
@@ -73,7 +74,7 @@ void handle_client_socket_event(struct epoll_event_handler* self, uint32_t event
     {
       printf("byr rd: %d",bytes_read);
       decode_message_from_client(self->closure,buffer,bytes_read);
-    }
+   }
   }
   if ((events & EPOLLERR) | (events & EPOLLHUP) /*| (events & EPOLLRDHUP)*/) {
     printf("\n error occured");
@@ -229,7 +230,7 @@ void display_clients_groups(struct client_group_ptree *p)
     printf("\n empty");
     return;
   }
-  display_ptree_inorder(p->root->left,0);
+//  display_ptree_inorder(p->root->left,0);
   printf("done\n");
 }
 
@@ -266,6 +267,19 @@ void process_signal_type(tlv *tlv,client_socket_event_data *client_data)
                        tlv_chain_serialise(tc,msg,&num_bytes);
                        bytes_sent = send(client_data->fd,msg,num_bytes,0);
                        tlv_chain_free(tc);
+                       tc = encode_join(JOIN_REQUEST,num_success_groups, success_group_list);
+                       tlv_chain_serialise(tc,msg,&num_bytes);
+                       tlv_chain_free(tc);
+                       if(num_bytes > MAX_MSG)
+                       {
+                         //needs to be handled more... needs to send mssg to client that mid-server unable to join that grp in main server.
+                         printf("\n mssg too long");
+                         free(success_group_list);
+                         return;
+                       }
+                       bytes_sent = 0;
+                       printf("sending to main server%s",msg);
+                       send(tcpfd, msg, num_bytes, 0);
                        free(success_group_list);
                        printf("\n bytes sent: %d",bytes_sent);
                        break;

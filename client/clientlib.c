@@ -71,7 +71,7 @@ int initClient(char *serverstring)
     printf("could not connect");
     close(sockfd);
     perror("client: connect");
-    return 1;
+    exit(-1);
   }
   make_socket_non_blocking(sockfd);
   freeaddrinfo(server_addr);

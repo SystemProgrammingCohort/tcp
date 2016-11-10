@@ -15,7 +15,9 @@
 #include "serverclientlib.h"
 
 #define MAX_CON 1200
+extern void* cli_handler(void *arg );
 
+pthread_t cli_pid;
 
 int main()
 {
@@ -23,6 +25,13 @@ int main()
   struct epoll_event event;
   epoll_event_handler *server_sock_handle;
   struct addrinfo *serveraddr=NULL;
+  int err;
+     err = pthread_create(&cli_pid, NULL,&cli_handler, NULL);
+     
+     if (err != 0)
+         printf("\ncan't create thread :[%s]", strerror(err));
+     else
+         printf("\n Thread created successfully\n"); 
 
   if(serverInit(&serveraddr,&sockfd) == -1)
   {

@@ -122,6 +122,7 @@ int  add_client_to_group(client_socket_event_data *client,int group)
   if(!add_group_to_client(client->clients_groups,group,(void *)group_node))
   {
     delete_dnode(&(_global_groups_[(group_node->group_number)-1].clients_list),&group_node);
+    _global_groups_[group-1].number_of_clients -= 1;
     return 0;
   }
   printf("\n added client to group");
@@ -137,10 +138,13 @@ int remove_all_groups_from_client(client_socket_event_data *client)
     return 1;
 
   struct dnode* group_node=NULL;
+  int group = 0;
 
   while((group_node = (struct dnode*)delete_rootgroup_from_client(client->clients_groups))!=NULL)
   {
     delete_dnode(&(_global_groups_[(group_node->group_number)-1].clients_list),&group_node);
+    group = (group_node->group_number)-1;
+    _global_groups_[group].number_of_clients -=1;
   }
   return 1;
 }
@@ -153,8 +157,13 @@ int remove_group_from_client(client_socket_event_data *client,int group_num)
     return 1;
 
   struct dnode* group_node=NULL;
+  int group = 0;
   if((group_node = (struct dnode *)delete_group_from_client(client->clients_groups,group_num))!=NULL)
+  {
     delete_dnode(&(_global_groups_[(group_node->group_number)-1].clients_list),&group_node);
+    group = (group_node->group_number)-1;
+    _global_groups_[group].number_of_clients -=1;
+  }
   return 1;
 }
 

@@ -3,6 +3,8 @@
 #include <string.h>
 #include "tlv.h"
 
+int sockfd;
+
 tlv_result init_tlv_chain(tlv_chain *a)
 {
   if(a==NULL)
@@ -145,6 +147,96 @@ tlv_chain* encode_join_request(uint16_t num_groups, uint16_t *group_list)
   free(str);
   return a;
 }
+
+void client_solve_task(tlv *tlv)
+{
+
+    int count,nc=0;
+    uint8_t sum = 0;
+    struct tlv *msg;
+
+    for(count=0;tlv->data[count]!='\0'; count++)
+    {
+            if((tlv->data[count]>='0') && (tlv->data[count]<='9'))
+            {
+                    nc += 1;
+                    sum += (tlv->data[count] - '0');
+            }
+    }
+
+    printf("NO. of Digits in the string=%d\n",nc);
+    printf("Sum of all digits=%d\n",sum);
+
+    // Send mid-server the result
+    msg = malloc(sizeof(tlv));
+
+    msg->type = QUES_ANSWER;
+    msg->size = sizeof(sum);
+    msg->data = &sum;
+
+    printf("sending message\n");
+    if( (send(sockfd, msg, sizeof(msg), 0)) < 0 ) {
+
+        printf("%s: error while sending message \n",__FUNCTION__);
+    }
+
+    free(msg);
+}
+
+void client_join_diffent_group() {
+
+}
+
+void client_send_ready()
+{
+    struct tlv *msg;
+
+    // Send mid-server the result
+    msg = malloc(sizeof(tlv));
+
+    msg->type = QUES_ANSWER;
+    msg->size = 0;
+    msg->data = NULL;
+
+    printf("%s: sending message\n",__FUNCTION__);
+    if( (send(sockfd, msg, sizeof(msg), 0)) < 0 ) {
+
+        printf("%s: error while sending message \n",__FUNCTION__);
+    }
+
+    free(msg);
+}
+
+tlv_result decode_server_msg(tlv *tlv)
+{
+
+    tlv_result ret = TLV_SUCCESS;
+
+    switch(tlv->type) {
+
+        case JOIN_ACCEPT:
+                         //Our join request got accepted at mid-server
+                         //Now send the ready message to processs questions
+                         client_send_ready();
+                         break;
+        case JOIN_REJECT:
+                         //mid-server rejected our request.
+                         //Currently we assume as group full so try join to other group
+                         //client_join_diffent_group();
+                         ret = TLV_SERVER_REJECT;
+        case QUES_SOLVE:
+                         //Recieved task to solve.
+                         client_solve_task(tlv);
+                         break;
+        default:
+                         printf("Invalid request from Server.\n");
+                         break;
+     }
+     return ret;
+
+}
+
+
 
 void decode_join_request(tlv *tlv,uint16_t *num_groups,uint16_t **group_list)
 {

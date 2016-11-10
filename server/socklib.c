@@ -30,6 +30,7 @@ int getfd(struct addrinfo *hints, struct addrinfo **returnaddr)
     fprintf(stderr,"getaddrinfo: %s\n", gai_strerror(status));
     exit(-1);
   }
+  print_addr(returnaddr);
   return socket((*returnaddr)->ai_family, (*returnaddr)->ai_socktype, (*returnaddr)->ai_protocol);                                                                                                          
 }
 

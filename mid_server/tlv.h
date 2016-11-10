@@ -32,6 +32,5 @@ tlv_result tlv_chain_serialise(tlv_chain *a, unsigned char *dest, int32_t *count
 tlv_result tlv_chain_deserialise(const unsigned char *source, tlv_chain *dest, int32_t length);
 int32_t tlv_chain_print(tlv_chain *a);
 int32_t tlv_chain_free(tlv_chain *a);
-tlv_chain* encode_join_request(uint16_t num_groups, uint16_t *group_list);
 
 #endif /* __TLV_H__ */
